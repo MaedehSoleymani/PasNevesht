@@ -1,4 +1,5 @@
 {% extends 'website/base.html' %}
+
 {% load static %}
 
 {% block title %}Home{% endblock %}
@@ -19,7 +20,7 @@
                     Create a message today that will be delivered in the future —
                     at the time you choose or if you become inactive.
                 </p>
-                <a href="#" class="hero-btn">Get Started</a>
+                <a href="{% url 'accounts:signup' %}" class="hero-btn">Get Started</a>
             </div>
         </div>
     </section>

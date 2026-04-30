@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+from gitignore.email_config import email_host_pass
+from gitignore.secret_key import secret_key
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,7 +22,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-k%qu3)ul(gs7+19ox-rry=gy@i90!aw8_gx455vit&khzkb1kt'
+SECRET_KEY = secret_key
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -37,12 +39,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
+    'widget_tweaks',
     'accounts',
-    'blog',
     'letters',
-    'log',
-    'schedules',
     'website',
+    'blog',
 ]
 
 MIDDLEWARE = [
@@ -121,3 +123,15 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+#session setting
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True 
+
+#Sending Email
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT= 587
+EMAIL_USE_TLS= True
+EMAIL_HOST_USER= 'vasi.codes@gmail.com'
+EMAIL_HOST_PASSWORD= email_host_pass
+DEFAULT_FROM_EMAIL= 'vasi.codes@gmail.com'

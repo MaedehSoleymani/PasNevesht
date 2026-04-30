@@ -1,0 +1,198 @@
+{% extends 'accounts/dashboard_base.html' %}
+
+{% load static %}
+
+{% load widget_tweaks %}
+
+{% block title %}Dashboard | Account Settings{% endblock %}
+
+{% block global_extra_css %}
+<link rel="stylesheet" href="{% static 'accounts/css/dash_account_settings.css' %}">
+{% endblock %}
+
+{% block dash_content %}
+<div class="settings-container">
+    <!-- Profile Section -->
+    <div class="settings-section">
+        <div class="settings-section-header">
+            <h3 class="settings-section-title">Profile Information</h3>
+            <button class="settings-edit-btn" id="editProfileBtn">Edit</button>
+        </div>
+        
+        <div class="settings-info-grid">
+            <div class="settings-info-item">
+                <span class="settings-info-label">Username:</span>
+                <span class="settings-info-value" id="usernameValue">{{ user.username }}</span>
+            
+                <span class="settings-info-label">Email:</span>
+                <span class="settings-info-value" id="emailValue">{{ user.email|default:"Not provided" }}</span>
+            </div>
+
+            <div class="settings-info-item">
+                <span class="settings-info-label">Member Since:</span>
+                <span class="settings-info-value">{{ user.date_joined|date:"F j, Y - H:i" }}</span>
+            
+                <span class="settings-info-label">Last Login:</span>
+                <span class="settings-info-value">{{ user.last_login|date:"F j, Y - H:i"|default:"Never" }}</span>
+            </div>
+        </div>
+        
+        <!-- Edit Profile Form (hidden by default) -->
+        <div id="editProfileForm" class="settings-edit-form" style="display: none;">
+            <form method="POST" action="{% url 'accounts:account_settings' %}">
+                <input type="hidden" name="action" value="edit_profile">
+                {% csrf_token %}
+                <div class="settings-form-group">
+                    <label for="{{profile_form.username.id_for_label}}">Username</label>
+                    {{profile_form.username|attr:"name:username"}}
+                    {% if profile_form.username.errors %}
+                    <div class="error-message">{{ profile_form.username.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="settings-form-group">
+                    <label for="{{profile_form.email.id_for_label}}">Email</label>
+                    {{profile_form.email| attr:"name:email"}}
+                    {% if profile_form.email.errors %}
+                    <div class="error-message">{{ profile_form.email.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="settings-form-actions">
+                    <button type="submit" class="settings-save-btn">Save Changes</button>
+                    <button type="button" class="settings-cancel-btn" id="cancelEditBtn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Change Password Section -->
+    <div class="settings-section">
+        <div class="settings-section-header">
+            <h3 class="settings-section-title">Change Password</h3>
+        </div>
+        
+        <form method="POST" action="{% url 'accounts:account_settings' %}">
+            <input type="hidden" name="action" value="change_password">
+            {% csrf_token %}
+            
+            <div class="settings-form-group">
+                <label for="{{ pass_form.current_password.id_for_label }}">Current Password</label>
+                {{ pass_form.current_password|attr:"name:current_password"}}
+                {% if pass_form.current_password.errors %}
+                    <div class="error-message">{{ pass_form.current_password.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="settings-form-group">
+                <label for="{{ pass_form.new_password.id_for_label }}">New Password</label>
+                {{ pass_form.new_password|attr:"name:new_password" }}
+                <small class="settings-hint">At least 8 characters</small>
+                {% if pass_form.new_password.errors %}
+                    <div class="error-message">{{ pass_form.new_password.errors }}</div>
+                {% endif %}
+            </div>/
+            
+            <div class="settings-form-group">
+                <label for="{{ pass_form.confirm_password.id_for_label }}">Confirm New Password</label>
+                {{ pass_form.confirm_password|attr:"name:confirm_password" }}
+                {% if pass_form.confirm_password.errors %}
+                    <div class="error-message">{{ pass_form.confirm_password.errors }}</div>
+                {% endif %}
+            </div>
+            
+            {% if form.non_field_errors %}
+                <div class="error-message">{{ form.non_field_errors }}</div>
+            {% endif %}
+            
+            <button type="submit" class="settings-change-pwd-btn">Change Password</button>
+        </form>
+    </div>
+
+<!-- Danger Zone -->
+<div class="settings-section settings-danger-section">
+    <div class="settings-section-header">
+        <h3 class="settings-section-title settings-danger-title">Danger Zone</h3>
+    </div>
+    
+    <div class="settings-danger-info">
+        <p>Once you delete your account, there is no going back. Please be certain.</p>
+        <button type="button" class="settings-delete-btn" id="deleteAccountBtn">Delete Account</button>
+    </div>
+</div>
+
+<!-- Delete Account Modal -->
+<div id="deleteModal" class="settings-modal">
+    <div class="settings-modal-content">
+        <div class="settings-modal-header">
+            <h3>Delete Account</h3>
+            <span class="settings-modal-close">&times;</span>
+        </div>
+        <form method="POST" action="{% url 'accounts:account_settings' %}" id="deleteAccountForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete_account">
+            <div class="settings-modal-body">
+                <p>Are you sure you want to delete your account?</p>
+                <p class="settings-modal-warning">This action cannot be undone. All your messages and data will be permanently deleted.</p>
+                 
+                <div class="settings-modal-actions">
+                    <button type="button" class="settings-modal-cancel">Cancel</button>
+                    <button type="submit" class="settings-modal-confirm">Yes, Delete My Account</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Edit Profile Toggle
+    const editBtn = document.getElementById('editProfileBtn');
+    const editForm = document.getElementById('editProfileForm');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+    const usernameValue = document.getElementById('usernameValue');
+    const emailValue = document.getElementById('emailValue');
+
+    if (editBtn) {
+        editBtn.onclick = function() {
+            editForm.style.display = 'block';
+            editBtn.style.display = 'none';
+        }
+    }
+
+    if (cancelEditBtn) {
+        cancelEditBtn.onclick = function() {
+            editForm.style.display = 'none';
+            editBtn.style.display = 'block';
+        }
+    }
+
+    // Delete Modal
+    const modal = document.getElementById('deleteModal');
+    const deleteBtn = document.getElementById('deleteAccountBtn');
+    const closeBtn = document.querySelector('.settings-modal-close');
+    const cancelBtn = document.querySelector('.settings-modal-cancel');
+
+    if (deleteBtn) {
+        deleteBtn.onclick = function() {
+            modal.style.display = 'block';
+        }
+    }
+
+    if (closeBtn) {
+        closeBtn.onclick = function() {
+            modal.style.display = 'none';
+        }
+    }
+
+    if (cancelBtn) {
+        cancelBtn.onclick = function() {
+            modal.style.display = 'none';
+        }
+    }
+
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

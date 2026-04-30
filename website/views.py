@@ -1,7 +1,8 @@
 #WEBSITE VIEWS
 
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.contrib import messages
+from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 
 def home(request):
     return render(request,'website/home.html')
@@ -17,10 +18,3 @@ def tos(request):
 
 def privacy(request):
     return render(request,'website/privacy.html')
-
-def signup(request):
-    return render(request,'website/signup.html')
-
-def login(request):
-    messages.success(request,"success test")
-    return render(request,'website/login.html')

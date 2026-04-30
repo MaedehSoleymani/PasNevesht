@@ -81,7 +81,15 @@ header {
 }
 
 .login {
+    padding: 8px 18px;
+    background-color: #e4e4e4;
     color: #0f172a;
+    border-radius: 6px;
+    transition: 0.3s ease;
+}
+
+.login:hover {
+    background-color: #eeeded;
 }
 
 .signup {

@@ -1,0 +1,85 @@
+{% extends 'accounts/dashboard_base.html' %}
+
+{% load static %}
+
+{% load widget_tweaks %}
+
+{% block title %}Dashboard| Add Message{% endblock %}
+
+{% block global_extra_css %}
+<link rel="stylesheet" href="{% static 'accounts/css/dash_add_message.css' %}">
+{% endblock %}
+
+{% block dash_content %}
+<div class="add-message-section">
+    <div class="add-message-card">
+        <h2 class="section-title">Add a New Message</h2>
+        
+        <form class="add-message-form" method="POST" action="{% url 'accounts:add_message' %}">
+            {% csrf_token %}
+            
+            <div class="form-row">
+                <div class="form-field">
+                    <label for="{{form.subject.id_for_label}}">Subject</label>
+                    {{form.subject| attr:"name=subject"| attr:"placeholder:Enter message subject"}}
+                    {% if forms.errors %}
+                    <div>{{form.subject.errors}}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="form-field">
+                    <label for="{{form.receiver.id_for_label}}">Receiver Email</label>
+                    {{form.receiver| attr:"name=receiver"| attr:"placeholder=receiver@example.com"}}
+                    {% if forms.errors %}
+                    <div>{{form.receiver.errors}}</div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="form-field full-width">
+                <label for="{{form.message.id_for_label}}">Message</label>
+                {{form.message| attr:"name=message"| attr:"placeholder=Write your message here..."}}
+                {% if forms.errors %}
+                    <div>{{form.message.errors}}</div>
+                {% endif %}
+            </div>
+            
+            <div class="form-field full-width">
+                <label for="{{form.scheduled_date.id_for_label}}">Set The Date (Optional):</label>
+                {{form.scheduled_date|attr:"min:"| attr:"name:scheduled_date"}}
+                {% if forms.errors %}
+                    <div>{{form.receiver.errors}}</div>
+                {% endif %}
+            </div>
+            
+            <button type="submit" class="submit-message-btn">Send Message</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateInput = document.querySelector('input[type="datetime-local"]');
+        if (dateInput) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            const minDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+            dateInput.min = minDateTime;
+            
+            dateInput.addEventListener('change', function() {
+                const selectedDate = new Date(this.value);
+                if (selectedDate < new Date()) {
+                    alert('You cannot select a past date and time.');
+                    this.value = '';
+                }
+            });
+        }
+    });
+</script>
+
+{% endblock %}

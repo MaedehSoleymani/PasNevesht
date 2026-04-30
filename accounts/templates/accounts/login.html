@@ -2,16 +2,15 @@
 
 {% load static %}
 
+{% load widget_tweaks %}
+
 {% block title %}Log In{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'website/css/login.css' %}">
-<link rel="stylesheet" href="{% static 'website/css/flash.css' %}">
+<link rel="stylesheet" href="{% static 'accounts/css/login.css' %}">
 {% endblock %}
 
 {% block content %}
-
-{% include 'website/flash.html' %}
 
 <main class="signin-page-v1">
 
@@ -26,38 +25,45 @@
                     Access your account and manage your scheduled messages.
                 </p>
 
-                <form class="signin-form">
+                <form class="signin-form" method="POST" action="{% url 'accounts:login' %}">
+                    {% csrf_token %}
 
                     <div class="form-group">
-                        <label>Email Address</label>
-                        <input type="email" placeholder="Enter your email address" required>
+                        <label for="{{form.username.id_for_label}}">Username</label>
+                        {{form.username|add_class:""|attr:"placeholder:Enter your username address"|attr:"name:username"}}
+                        {% if form.username.errors %}
+                        <div class="">{{form.username.errors}}</div>
+                        {% endif %}
                     </div>
 
                     <div class="form-group">
-                        <label>Password</label>
-                        <input type="password" placeholder="Enter your password" required>
+                        <label for="{{form.password.id_for_label}}'">Password</label>
+                        {{form.password|add_class:"pass"|attr:"placeholder:Enter your password"|attr:"name:password"}}
+                        {% if form.password.errors %}
+                        <div>{{form.password.errors}}</div>
+                        {% endif %}
                     </div>
 
                     <div class="signin-options">
                         <label class="remember-me">
-                            <input type="checkbox">
+                            <input type="checkbox" name="remember_me">
                             <span>Remember me</span>
                         </label>
 
-                        <a href="#" class="forgot-link">
+                        <a href="" class="forgot-link">
                             Forgot password?
                         </a>
                     </div>
 
                     <button type="submit" class="signin-btn">
-                        Sign In
+                        Log In
                     </button>
 
                 </form>
 
                 <div class="signup-redirect">
                     Don’t have an account?
-                    <a href="{% url 'website:signup' %}">Sign Up</a>
+                    <a href="{% url 'accounts:signup' %}">Sign Up</a>
                 </div>
 
             </div>
