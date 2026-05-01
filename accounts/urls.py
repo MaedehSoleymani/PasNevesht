@@ -17,4 +17,6 @@ urlpatterns=[
     path('dashboard/contacts', views.contacts, name='contacts'),
     path('dashboard/account_settings', views.account_settings, name='account_settings'),
     path('verify-email/<str:token>/', views.receive_confirm_email, name='receive_confirm_email'),
+    path('reset_password/<str:token>/', views.receive_reset_password, name='receive_reset_password'),
+    path('forgot_password',views.forgot_password, name='forgot_password'),
 ]

@@ -74,37 +74,7 @@
         <form method="POST" action="{% url 'accounts:account_settings' %}">
             <input type="hidden" name="action" value="change_password">
             {% csrf_token %}
-            
-            <div class="settings-form-group">
-                <label for="{{ pass_form.current_password.id_for_label }}">Current Password</label>
-                {{ pass_form.current_password|attr:"name:current_password"}}
-                {% if pass_form.current_password.errors %}
-                    <div class="error-message">{{ pass_form.current_password.errors }}</div>
-                {% endif %}
-            </div>
-            
-            <div class="settings-form-group">
-                <label for="{{ pass_form.new_password.id_for_label }}">New Password</label>
-                {{ pass_form.new_password|attr:"name:new_password" }}
-                <small class="settings-hint">At least 8 characters</small>
-                {% if pass_form.new_password.errors %}
-                    <div class="error-message">{{ pass_form.new_password.errors }}</div>
-                {% endif %}
-            </div>/
-            
-            <div class="settings-form-group">
-                <label for="{{ pass_form.confirm_password.id_for_label }}">Confirm New Password</label>
-                {{ pass_form.confirm_password|attr:"name:confirm_password" }}
-                {% if pass_form.confirm_password.errors %}
-                    <div class="error-message">{{ pass_form.confirm_password.errors }}</div>
-                {% endif %}
-            </div>
-            
-            {% if form.non_field_errors %}
-                <div class="error-message">{{ form.non_field_errors }}</div>
-            {% endif %}
-            
-            <button type="submit" class="settings-change-pwd-btn">Change Password</button>
+            <button type="submit" class="settings-change-pwd-btn">Send email</button>
         </form>
     </div>
 

@@ -240,7 +240,6 @@ def contacts(request):
 def account_settings(request):
     user=request.user
     profile_form=EditprofileForm(request.POST, instance=user)
-    pass_form=C_PasswordResetForm(request.POST)
 
     if request.method=='POST':
         action=request.POST.get('action')
@@ -274,25 +273,18 @@ def account_settings(request):
                 profile_form=EditprofileForm()
                     
         elif action=='change_password':
-            if pass_form.is_valid():
-                current_password=pass_form.cleaned_data['current_password']
-                new_password=pass_form.cleaned_data['new_password']
-                confirm_password=pass_form.cleaned_data['confirm_password']
-                if not user.check_password(current_password):
-                    messages.error(request,'The current password is wrong.')
-                    return redirect('accounts:account_settings')
-                elif user.check_password(current_password)==new_password:
-                    messages.error('the password you have chosen is your current password. please choose a different one.')
-                elif new_password != confirm_password:
-                    messages.error(request, 'New passwords do not match.')
-                else:
-                    user.set_password(new_password)
-                    user.save(update_fields=['password'])
-                    update_session_auth_hash(request, user)
+            try:
+                UserToken.objects.filter(user=user, token_type='verify_email', is_used=False).delete()            
+                user_token= UserToken.objects.create(
+                    user=user,
+                    token_type='reset_password')
+                ok=send_reset_password(request, user_token.token, user)
+                if ok:
                     messages.success(request, 'Your password has been changed successfully!')
                     return redirect('accounts:account_settings')
-            else:
-                messages.error(request,'The password you entered appears to be invalid. Please make sure it has the required charracters.')
+            except Exception as e:
+                messages.error(request,'Something went wrong. please try again.')
+                print(f"{e}")
                 return redirect('accounts:account_settings')
             
         elif action=='delete_account':
@@ -305,17 +297,15 @@ def account_settings(request):
             return redirect('accounts:account_settings')
     else:
         profile_form = EditprofileForm(instance=user)
-        pass_form=C_PasswordResetForm()
-    return render(request,'accounts/dash_account_settings.html',{'profile_form':profile_form,'pass_form':pass_form})
+    return render(request,'accounts/dash_account_settings.html',{'profile_form':profile_form})
 
 
 @c_login_required
-def send_reset_password(request,token):
+def send_reset_password(request, token, user):
     reset_url= request.build_absolute_uri(
     reverse('accounts:receive_reset_password', kwargs={'token': token.token}))
 
     #email
-    user=request.user
     subject='PasNevesht - reset your password'
     html_content=render_to_string('emails/reset_password.html', {
         'username': user.username,
@@ -339,11 +329,12 @@ def send_reset_password(request,token):
         messages.success(request,f'Verification email sent to {user.email}. Please check your inbox and spam folder.')
     except Exception as e:
         messages.error(request,'Failed to send verification email. Please check your email address and try again.')
-    return render(request,'accounts/change_password.html')
+    return redirect('accounts:account_settings')
 
 
-def receive_reset_password(request,token):
+def receive_reset_password(request, token):
     user_token=get_object_or_404(UserToken,token=token,token_type='reset_password')
+    user=token.user
     if not user_token.is_valid():
         messages.error(request,'The link has expired or already used.')
         return redirect('accounts:reset_password')
@@ -351,19 +342,24 @@ def receive_reset_password(request,token):
         form=C_PasswordResetForm(request.POST)
         if form.is_valid():
             new_password=form.cleaned_data['new_password']
-            user=user_token.user
-            user.set_password(new_password)
-            user.save()            
-            user_token.is_used=True
-            user_token.save()
-            messages.success(request, 'Password changed successfully! Please login.')
-            return redirect('accounts:account_settings')
+            confirm_password=form.cleaned_data['confirm_password']
+            if user.check_password(user.password):
+                messages.error('New password cannot be the same as your current password.')
+            elif new_password != confirm_password:
+                messages.error(request, 'New passwords do not match.')
+            else:
+                user.set_password(new_password)
+                user.save(update_fields=['password'])
+                update_session_auth_hash(request, user)            
+                user_token.is_used=True
+                user_token.save()
+                messages.success(request, 'Password changed successfully.')
+                return redirect('accounts:account_settings')
         else:
-            messages.error(request,'The information you entered appears to be invalid. Please check the highlighted fields and correct them.')
-            return redirect('accounts:reset_password')
+            messages.error(request,'Please correct the errors.')
     else:
         form=C_PasswordResetForm(request.user)
-    return render(request, 'change_password.html', {'form': form})
+    return render(request, 'change_password.html', {'form':form,'token':token})
 
 
 def send_confirm_email(request, pending_email, token, user):
@@ -407,3 +403,22 @@ def receive_confirm_email(request,token):
     user_token.save(update_fields=['is_used'])
     messages.success(request, 'Email verified successfully!')
     return redirect('accounts:dashboard')
+
+
+def forgot_password(request):
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            messages.error(request, 'No account found with this email address.')
+            return redirect('accounts:forgot_password')       
+        UserToken.objects.filter(user=user, token_type='reset_password', is_used=False).delete()       
+        user_token= UserToken.objects.create(
+            user=user,
+            token_type='reset_password'
+        )        
+        send_reset_password(request, user_token.token, user)        
+        messages.success(request, f'Reset link sent to {email}. Please check your inbox.')
+        return redirect('accounts:login')    
+    return render(request, 'accounts/login_forgot_password.html')

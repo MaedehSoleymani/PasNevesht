@@ -36,11 +36,6 @@ class EditprofileForm(forms.ModelForm):
 
   
 class C_PasswordResetForm(forms.Form):
-    current_password=forms.CharField(
-        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
-        min_length=8,
-        label='Current Password'
-    )
     new_password=forms.CharField(
         widget=forms.PasswordInput(attrs={'class': 'form-control'}),
         min_length=8,
