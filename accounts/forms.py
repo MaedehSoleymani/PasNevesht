@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.models import User
+from accounts.models import User
 from django.contrib.auth.forms import UserCreationForm
 
 class C_UserCreationForm(UserCreationForm):
@@ -15,6 +15,12 @@ class C_UserCreationForm(UserCreationForm):
             'password1':forms.PasswordInput(),
             'password2':forms.PasswordInput()
         }
+
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError("This email already exists. Please try another email.")
+        return email
 
     def save(self, commit=True):
         user = super().save(commit=False)

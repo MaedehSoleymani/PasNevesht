@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404, reverse
 from django.contrib import messages
 from django.contrib.auth import login as login_auth, authenticate, logout as logout_auth, update_session_auth_hash
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, PasswordChangeForm
-from django.contrib.auth.models import User
+from accounts.models import User
 from letters.forms import LetterForm, ContactForm
 from letters.models import Letter, Contact
 from accounts.forms import EditprofileForm, C_UserCreationForm, C_PasswordResetForm
@@ -22,6 +22,8 @@ from django.utils.html import strip_tags
 #other functions
 def check_email(request):
     user=request.user
+    if not user.is_authenticated:
+        return False
     if user.email and user.email!='not verified':
         return True
     else:
@@ -40,12 +42,11 @@ def signup(request):
                 del form.errors['password2']
             data = request.POST.copy()
             data['password2'] = data.get('password1', '')
-            form = C_UserCreationForm(data)  
+            form = C_UserCreationForm(data) 
             print(f"{data}")     
             if form.is_valid():
                 user = form.save(commit=False)
                 pending_email=form.cleaned_data.get('email')
-                user.email = 'not verified'
                 user.save()
                 print(f"user saved {user}")
                 if pending_email:
@@ -65,8 +66,9 @@ def signup(request):
                     messages.success(request,'Your account has been created successfully. You may now log in using your credentials.')
                     return redirect('accounts:login')
             else:
+                print(form.errors.as_json())
                 messages.error(request,'Unable to create your account. Please ensure all required fields are filled correctly and try again.')
-                return redirect('accounts:signup')
+                return render(request, 'accounts/signup.html',{'form': form})
         else:
             form=C_UserCreationForm()
     return render(request,'accounts/signup.html',{'form':form})
@@ -130,6 +132,10 @@ def add_message(request):
         if form.is_valid():
             letter=form.save(commit=False)
             letter.author=request.user
+            if letter.scheduled_date:
+                letter.status=letter.STATUS_SCHEDULED
+            else:
+                letter.status=letter.STATUS_NOT_SCHEDULED
             letter.save()
             messages.success(request,'Your Message was saved successfully.')
 
@@ -149,8 +155,10 @@ def add_message(request):
 
 @c_login_required
 def my_messages(request):
-    letter=Letter.objects.filter(author=request.user).order_by('-created_date')
-    return render(request,'accounts/dash_my_messages.html',{'letter':letter})
+    letter=Letter.objects.filter(author=request.user)
+    pending_letters=letter.exclude(status='sent').order_by('-created_date')
+    sent_letters=letter.filter(status='sent').order_by('-created_date')
+    return render(request,'accounts/dash_my_messages.html',{'pending_letters':pending_letters,'sent_letters':sent_letters})
 
 @c_login_required
 def letter_actions(request,lid):
@@ -160,6 +168,8 @@ def letter_actions(request,lid):
         action=request.POST.get("action")
         if action=="edit":
             return redirect('accounts:edit_message',lid=lid)
+        elif action=="send":
+            return redirect('accounts:send_message',lid=lid)
         elif action=="delete":
             letter.delete()
             messages.success(request,'The message has been deleted successfully.')
@@ -176,7 +186,12 @@ def edit_message(request,lid):
     if request.method=='POST':
         form=LetterForm(request.POST, instance=letter)
         if form.is_valid():
-            form.save()
+            letter=form.save(commit=False)
+            if letter.scheduled_date:
+                letter.status=letter.STATUS_SCHEDULED
+            else:
+                letter.status=letter.STATUS_NOT_SCHEDULED
+            letter.save()
             messages.success(request,'Your changes have been applied successfully.')
             return redirect('accounts:my_messages')
         else:
@@ -186,6 +201,46 @@ def edit_message(request,lid):
         form=LetterForm(instance=letter)
     return render (request,'accounts/dash_edit_message.html',{'letter':letter, 'form':form})
 
+@c_login_required
+def send_message(request, lid):
+    letter=get_object_or_404(Letter,author=request.user,id=lid)
+
+    html_content=render_to_string('emails/send_message_email.html',
+    {
+        'subject': letter.subject,
+        'message_content': letter.message,
+        'sent_at': timezone.now(),
+        'year': timezone.now().year
+    })
+
+    text_content = strip_tags(html_content)
+
+    msg = EmailMultiAlternatives(
+        subject=letter.subject,
+        body=text_content,
+        from_email=DEFAULT_FROM_EMAIL,
+        to=[letter.receiver]
+    )
+
+    msg.attach_alternative(html_content, "text/html")
+
+    try:
+        msg.send()
+        print("email sent")
+        letter.status=Letter.STATUS_SENT
+        print("email status changed")
+        letter.sent_date=timezone.now()
+        print("sent date set")
+        messages.success(request, "Message sent successfully.")
+    except Exception as e:
+        print(f"Email send error: {e}")
+        letter.status=Letter.STATUS_FAILED
+        messages.error(request, "Failed to send message.")
+
+    letter.save()
+    print("status updated")
+
+    return redirect('accounts:my_messages')
 
 @c_login_required
 def contacts(request):
@@ -264,11 +319,13 @@ def account_settings(request):
                     user=user,
                     token_type='verify_email',
                     pending_email=new_email)
-                    ok=send_confirm_email(request, new_email, user_token.token, user)
-                    if ok:
+                    result=send_confirm_email(request, new_email, user_token, user)
+                    if result:
                         messages.success(request, f'Verification email sent to {new_email}. Please check your inbox.')
+                    elif result == "email_exists":
+                        messages.warning(request, 'This email is already registered.')
                     else:
-                        messages.warning(request, f'Failed to send verification email to {new_email}.')
+                        messages.error(request, f'Failed to send verification email to {new_email}.')
             else:
                 profile_form=EditprofileForm()
                     
@@ -280,8 +337,9 @@ def account_settings(request):
                     token_type='reset_password')
                 ok=send_reset_password(request, user_token.token, user)
                 if ok:
-                    messages.success(request, 'Your password has been changed successfully!')
-                    return redirect('accounts:account_settings')
+                    messages.success(request, f'Password reset link has been sent to {user.email}. Please check your inbox.')
+                else:
+                    messages.error(request, f'Failed to send verification email to {user.email}.')
             except Exception as e:
                 messages.error(request,'Something went wrong. please try again.')
                 print(f"{e}")
@@ -300,14 +358,13 @@ def account_settings(request):
     return render(request,'accounts/dash_account_settings.html',{'profile_form':profile_form})
 
 
-@c_login_required
 def send_reset_password(request, token, user):
     reset_url= request.build_absolute_uri(
-    reverse('accounts:receive_reset_password', kwargs={'token': token.token}))
+    reverse('accounts:receive_reset_password', kwargs={'token': token}))
 
     #email
     subject='PasNevesht - reset your password'
-    html_content=render_to_string('emails/reset_password.html', {
+    html_content=render_to_string('emails/reset_pass_email.html', {
         'username': user.username,
         'reset_url': reset_url,
         'year': timezone.now().year
@@ -326,15 +383,16 @@ def send_reset_password(request, token, user):
 
     try:
         msg.send()
-        messages.success(request,f'Verification email sent to {user.email}. Please check your inbox and spam folder.')
+        print("pass change email was successfully sent")
+        return True
     except Exception as e:
-        messages.error(request,'Failed to send verification email. Please check your email address and try again.')
-    return redirect('accounts:account_settings')
+        print(f"Error:{e}")
+        return False
 
 
 def receive_reset_password(request, token):
     user_token=get_object_or_404(UserToken,token=token,token_type='reset_password')
-    user=token.user
+    user=user_token.user
     if not user_token.is_valid():
         messages.error(request,'The link has expired or already used.')
         return redirect('accounts:reset_password')
@@ -343,8 +401,8 @@ def receive_reset_password(request, token):
         if form.is_valid():
             new_password=form.cleaned_data['new_password']
             confirm_password=form.cleaned_data['confirm_password']
-            if user.check_password(user.password):
-                messages.error('New password cannot be the same as your current password.')
+            if user.check_password(new_password):
+                messages.error(request,'New password cannot be the same as your current password.')
             elif new_password != confirm_password:
                 messages.error(request, 'New passwords do not match.')
             else:
@@ -354,25 +412,21 @@ def receive_reset_password(request, token):
                 user_token.is_used=True
                 user_token.save()
                 messages.success(request, 'Password changed successfully.')
-                return redirect('accounts:account_settings')
+                return redirect('accounts:login')
         else:
             messages.error(request,'Please correct the errors.')
     else:
-        form=C_PasswordResetForm(request.user)
-    return render(request, 'change_password.html', {'form':form,'token':token})
+        form=C_PasswordResetForm()
+    return render(request, 'accounts/reset_password.html', {'form':form,'token':token})
 
 
 def send_confirm_email(request, pending_email, token, user):
-    check=check_email(request)
-    if check:
-        messages.error(request, 'Your email is already verified.')
-        return False
     if User.objects.filter(email=pending_email).exists():
-        messages.error(request, 'This email is already registered.')
-        return False
+        return "email_exists"
     
     confirm_email_url= request.build_absolute_uri(
     reverse('accounts:receive_confirm_email', kwargs={'token': token.token}))
+    print("before render to string send_confirm_email")
     html_content = render_to_string('emails/confirm_email.html', {
         'username': user.username,
         'confirm_email_url': confirm_email_url,
@@ -386,8 +440,10 @@ def send_confirm_email(request, pending_email, token, user):
     msg.attach_alternative(html_content, "text/html")
     try:
         msg.send()
+        print("send_confirm_email done")
         return True
-    except Exception:
+    except Exception as e:
+        print(f"Error: {e}")
         return False
     
 
@@ -402,23 +458,24 @@ def receive_confirm_email(request,token):
     user_token.is_used = True
     user_token.save(update_fields=['is_used'])
     messages.success(request, 'Email verified successfully!')
-    return redirect('accounts:dashboard')
-
+    return redirect('accounts:login')
 
 def forgot_password(request):
     if request.method == 'POST':
         email = request.POST.get('email')
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
+        user = User.objects.filter(email=email).first()
+        if not user:
             messages.error(request, 'No account found with this email address.')
             return redirect('accounts:forgot_password')       
         UserToken.objects.filter(user=user, token_type='reset_password', is_used=False).delete()       
         user_token= UserToken.objects.create(
             user=user,
             token_type='reset_password'
-        )        
-        send_reset_password(request, user_token.token, user)        
-        messages.success(request, f'Reset link sent to {email}. Please check your inbox.')
-        return redirect('accounts:login')    
+        )
+        try: 
+            send_reset_password(request, user_token.token, user)        
+            messages.success(request, f'Reset link sent to {email}. Please check your inbox.')
+        except Exception as e:
+            messages.error(request, f'Failed to send an Email.')
+            print(f"{e}")
     return render(request, 'accounts/login_forgot_password.html')

@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
-from gitignore.email_config import email_host_pass
+from gitignore.email_config import email_host_pass, email_host_user, default_from_email
 from gitignore.secret_key import secret_key
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -118,12 +118,17 @@ USE_I18N = True
 
 USE_TZ = True
 
-
+AUTH_USER_MODEL = 'accounts.User'
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
 
+STATICFILES_DIRS = [BASE_DIR / 'static',]
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 #session setting
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True 
 
@@ -132,6 +137,6 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT= 587
 EMAIL_USE_TLS= True
-EMAIL_HOST_USER= 'vasi.codes@gmail.com'
+EMAIL_HOST_USER= email_host_user
 EMAIL_HOST_PASSWORD= email_host_pass
-DEFAULT_FROM_EMAIL= 'vasi.codes@gmail.com'
+DEFAULT_FROM_EMAIL= default_from_email

@@ -1,8 +1,11 @@
 #ACCOUNT MODELS
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 import secrets
+
+class User(AbstractUser):
+    email = models.EmailField(unique=True)
 
 class UserToken(models.Model):
     TOKEN_TYPES=[

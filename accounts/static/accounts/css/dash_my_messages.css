@@ -130,6 +130,10 @@
     color: #dc2626;
 }
 
+.msg-edit-btn {
+    background-color: #172d6a;
+    color: white;
+}
 
 /* Responsive */
 @media (max-width: 768px) {

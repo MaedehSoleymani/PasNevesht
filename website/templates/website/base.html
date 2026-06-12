@@ -15,6 +15,7 @@
         <link rel="stylesheet" href="{% static 'website/css/messages.css' %}">
 
         {% block extra_css %}{% endblock %}
+
         {% block global_extra_css %}{% endblock %}
 
         <title>{% block title %}Pasnevesht{% endblock %}</title>
@@ -24,8 +25,9 @@
     <body>
 
         <header>
-            <div class="logo">Pasnevesht</div>
-
+            <div class="logo">
+                <a href="{% url 'website:home' %}"><img src="{% static 'website/images/logo.png' %}" alt="Afterword Logo" class="site-logo"></a>
+            </div>
             <nav class="nav-links">
                 <a href="{% url 'website:home' %}">Home</a>
                 <a href="{% url 'website:home' %}#howitworks">How It Works</a>
@@ -46,10 +48,8 @@
 
 <!----------------------------------------------------->
 <!-- BODY -->
-
         {% block content %}
         {% endblock %}
-
 <!----------------------------------------------------->
 <!-- FOOTER -->
 

@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from accounts.models import User
 from django.utils import timezone
 
 class Contact(models.Model):
@@ -28,21 +28,12 @@ class Letter(models.Model):
     message= models.TextField(null=False)
     created_date= models.DateTimeField(auto_now_add=True, null=False)
     scheduled_date= models.DateTimeField(blank=True, null=True)
+    sent_date= models.DateTimeField(blank=True, null=True)
     status= models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         default=STATUS_NOT_SCHEDULED,
         null=False)
 
-    def save(self, *args, **kwargs):
-        now= timezone.now()
-        if self.scheduled_date is None:
-            self.status= self.STATUS_NOT_SCHEDULED
-        elif self.scheduled_date>now:
-            self.status= self.STATUS_SCHEDULED
-        else:
-            self.status= self.STATUS_SENT
-        super().save(*args, **kwargs)
-        
     def __str__(self):
         return self.subject

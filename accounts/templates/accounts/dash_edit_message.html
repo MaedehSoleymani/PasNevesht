@@ -84,4 +84,32 @@
         </div>
     </div>
 </div>
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateInput = document.querySelector('input[type="datetime-local"]');
+        if (dateInput) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            const minDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+            dateInput.min = minDateTime;
+            
+            dateInput.addEventListener('change', function() {
+                const selectedDate = new Date(this.value);
+                if (selectedDate < new Date()) {
+                    alert('You cannot send a letter to the past. Choose a future moment.');
+                    this.value = '';
+                }
+            });
+        }
+    });
+</script>
+
 {% endblock %}
