@@ -42,9 +42,10 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'widget_tweaks',
     'accounts',
-    'letters',
     'website',
     'blog',
+    'letters.apps.LettersConfig',
+
 ]
 
 MIDDLEWARE = [

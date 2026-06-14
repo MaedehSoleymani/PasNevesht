@@ -7,7 +7,7 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, Pass
 from accounts.models import User
 from letters.forms import LetterForm, ContactForm
 from letters.models import Letter, Contact
-from accounts.forms import EditprofileForm, C_UserCreationForm, C_PasswordResetForm
+from accounts.forms import EditUsernameForm, EditEmailForm, C_UserCreationForm, C_PasswordResetForm
 from django.core.mail import send_mail, EmailMultiAlternatives
 from pasnevesht.settings import DEFAULT_FROM_EMAIL
 from django.contrib.auth.decorators import login_required, permission_required
@@ -16,7 +16,7 @@ from accounts.models import UserToken
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.html import strip_tags
-
+from datetime import timedelta
 
 #----------------------------------------------------------
 #other functions
@@ -131,6 +131,7 @@ def add_message(request):
         form=LetterForm(request.POST)
         if form.is_valid():
             letter=form.save(commit=False)
+            letter.scheduled_date = timezone.now()
             letter.author=request.user
             if letter.scheduled_date:
                 letter.status=letter.STATUS_SCHEDULED
@@ -294,40 +295,41 @@ def contacts(request):
 @c_login_required
 def account_settings(request):
     user=request.user
-    profile_form=EditprofileForm(request.POST, instance=user)
-
     if request.method=='POST':
         action=request.POST.get('action')
+        username_form=EditUsernameForm(request.POST, instance=user)
+        email_form=EditEmailForm(request.POST, instance=user)
+
         if action == 'edit_profile':
-            if profile_form.is_valid():
-                new_username = profile_form.cleaned_data['username']
-                new_email = profile_form.cleaned_data['email']
-                if profile_form.has_changed() and 'username' in profile_form.changed_data:
-                    if User.objects.filter(username=new_username).exists():
-                        messages.error(request,'This Username already exist. please choose another.')
-                        return redirect('accounts:account_settings')
-                    else:
-                        user.username = new_username
-                        user.save(update_fields=['username'])
-                        messages.success(request,'Username changed successfully.')
-                if profile_form.has_changed() and 'email' in profile_form.changed_data:
-                    if User.objects.filter(email=new_email).exists():
-                        messages.error(request, 'This email is already registered to another account.')
-                        return redirect('accounts:account_settings')                
-                    UserToken.objects.filter(user=user, token_type='verify_email', is_used=False).delete()            
-                    user_token= UserToken.objects.create(
-                    user=user,
-                    token_type='verify_email',
-                    pending_email=new_email)
-                    result=send_confirm_email(request, new_email, user_token, user)
-                    if result:
-                        messages.success(request, f'Verification email sent to {new_email}. Please check your inbox.')
-                    elif result == "email_exists":
-                        messages.warning(request, 'This email is already registered.')
-                    else:
-                        messages.error(request, f'Failed to send verification email to {new_email}.')
+            if username_form.is_valid():
+                new_username = username_form.cleaned_data['username']
+                if User.objects.filter(username=new_username).exists():
+                    messages.error(request,'This Username already exist. please choose another.')
+                    return redirect('accounts:account_settings')
+                else:
+                    user.username = new_username
+                    user.save(update_fields=['username'])
+                    messages.success(request,'Username changed successfully.')
+
+        elif action=='change_email':
+            if email_form.is_valid():
+                new_email = email_form.cleaned_data['email']
+                if User.objects.filter(email=new_email).exists():
+                    messages.error(request, 'This email is already registered to another account.')
+                    return redirect('accounts:account_settings')                
+                UserToken.objects.filter(user=user, token_type='verify_email', is_used=False).delete()            
+                user_token= UserToken.objects.create(
+                user=user,
+                token_type='verify_email',
+                pending_email=new_email)
+                result=send_confirm_email(request, new_email, user_token, user)
+                if result:
+                    messages.success(request, f'Verification email sent to {new_email}. Please check your inbox.')
+                else:
+                    messages.error(request, f'Failed to send verification email to {new_email}.')
             else:
-                profile_form=EditprofileForm()
+                email_form=EditEmailForm()
+
                     
         elif action=='change_password':
             try:
@@ -354,8 +356,12 @@ def account_settings(request):
             messages.error(request, 'Invalid action.')
             return redirect('accounts:account_settings')
     else:
-        profile_form = EditprofileForm(instance=user)
-    return render(request,'accounts/dash_account_settings.html',{'profile_form':profile_form})
+        username_form=EditUsernameForm(instance=user)
+        email_form=EditEmailForm(instance=user)
+
+    context = {
+    'username_form': username_form,'email_form': email_form,}
+    return render(request,'accounts/dash_account_settings.html',context)
 
 
 def send_reset_password(request, token, user):
@@ -420,10 +426,7 @@ def receive_reset_password(request, token):
     return render(request, 'accounts/reset_password.html', {'form':form,'token':token})
 
 
-def send_confirm_email(request, pending_email, token, user):
-    if User.objects.filter(email=pending_email).exists():
-        return "email_exists"
-    
+def send_confirm_email(request, pending_email, token, user):    
     confirm_email_url= request.build_absolute_uri(
     reverse('accounts:receive_confirm_email', kwargs={'token': token.token}))
     print("before render to string send_confirm_email")

@@ -30,13 +30,22 @@ class C_UserCreationForm(UserCreationForm):
         return user
     
 
-class EditprofileForm(forms.ModelForm):
+class EditUsernameForm(forms.ModelForm):
     class Meta:
         model= User
-        fields=['username', 'email']
+        fields=['username']
 
         widgets={
             'username':forms.TextInput(attrs={'class':'form-control'}),
+        }
+
+  
+class EditEmailForm(forms.ModelForm):
+    class Meta:
+        model= User
+        fields=['email']
+
+        widgets={
             'email':forms.EmailInput(attrs={'class':'form-control'})
         }
 
