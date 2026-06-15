@@ -5,8 +5,10 @@ from django.utils import timezone
 class Contact(models.Model):
     user=models.ForeignKey(User, on_delete=models.CASCADE, null=False)
     name= models.CharField(null=True, blank=True)
-    email= models.EmailField(unique=True, null=False, blank=False)
+    email= models.EmailField(null=False, blank=False)
     created_date= models.DateTimeField(auto_now_add=True)
+    class Meta:
+        unique_together = ['user', 'email']
 
 class Letter(models.Model):
 

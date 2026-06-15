@@ -131,7 +131,6 @@ def add_message(request):
         form=LetterForm(request.POST)
         if form.is_valid():
             letter=form.save(commit=False)
-            letter.scheduled_date = timezone.now()
             letter.author=request.user
             if letter.scheduled_date:
                 letter.status=letter.STATUS_SCHEDULED
