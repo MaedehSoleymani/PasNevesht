@@ -9,8 +9,8 @@ scheduler = None
 
 def send_scheduled_letters():
     print("checking letters...")
-
-    now = timezone.now() + timedelta(hours=3,minutes=30)
+    #difference between Local time and UTC 
+    now = timezone.now() # + timedelta(hours=3,minutes=30)
 
     print("NOW:", now)
     for l in Letter.objects.all():

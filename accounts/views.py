@@ -18,6 +18,10 @@ from django.utils import timezone
 from django.utils.html import strip_tags
 from datetime import timedelta
 
+#ِDeploy codes  for sending verification email
+from django.conf import settings
+from letters.utils import run_async
+
 #----------------------------------------------------------
 #other functions
 def check_email(request):
@@ -55,13 +59,20 @@ def signup(request):
                     user=user,
                     token_type='verify_email',
                     pending_email=pending_email)
-                    ok=send_confirm_email(request, pending_email, token, user)
-                    if ok:
-                        messages.success(request, f'Your account has been created. A verification email has been sent to {pending_email}.')
-                        return redirect('accounts:login')
-                    else:
-                        messages.warning(request, f"Account created, but failed to send verification email to {pending_email}.")
-                        return redirect('accounts:login')
+
+                    #ِDeploy codes  for sending verification email
+                    run_async(send_confirm_email, request, pending_email, token, user)
+                    messages.success(request, f'Account created. If the email is valid, a verification link will be sent to {pending_email}.')
+
+                    #Local codes for sending verification email
+                    # ok=send_confirm_email(request, pending_email, token, user)
+                    # if ok:
+                    #     messages.success(request, f'Your account has been created. A verification email has been sent to {pending_email}.')
+                    #     return redirect('accounts:login')
+                    # else:
+                    #     messages.warning(request, f"Account created, but failed to send verification email to {pending_email}.")
+                    #     return redirect('accounts:login')
+
                 else:
                     messages.success(request,'Your account has been created successfully. You may now log in using your credentials.')
                     return redirect('accounts:login')
@@ -151,7 +162,8 @@ def add_message(request):
             return redirect('accounts:my_messages') 
     else:
         form=LetterForm()
-    return render (request,'accounts/dash_add_message.html',{'form':form})
+    UTC_time=timezone.now()
+    return render (request,'accounts/dash_add_message.html',{'form':form, 'UTC_time':UTC_time})
 
 @c_login_required
 def my_messages(request):
@@ -199,7 +211,8 @@ def edit_message(request,lid):
             return render(request, 'accounts/dash_edit_message.html', {'form': form, 'letter': letter})
     else:
         form=LetterForm(instance=letter)
-    return render (request,'accounts/dash_edit_message.html',{'letter':letter, 'form':form})
+    UTC_time=timezone.now()
+    return render (request,'accounts/dash_edit_message.html',{'letter':letter, 'form':form, 'UTC_time':UTC_time})
 
 @c_login_required
 def send_message(request, lid):
@@ -363,6 +376,64 @@ def account_settings(request):
     return render(request,'accounts/dash_account_settings.html',context)
 
 
+def send_confirm_email(request, pending_email, token, user):    
+    confirm_email_url= request.build_absolute_uri(
+    reverse('accounts:receive_confirm_email', kwargs={'token': token.token}))
+    print("before render to string send_confirm_email")
+    html_content = render_to_string('emails/confirm_email.html', {
+        'username': user.username,
+        'confirm_email_url': confirm_email_url,
+        'year': timezone.now().year,})
+    text_content = strip_tags(html_content)
+    msg = EmailMultiAlternatives(
+        subject='PasNevesht - Confirm Your Email',
+        body=text_content,
+        from_email=DEFAULT_FROM_EMAIL,
+        to=[pending_email])
+    msg.attach_alternative(html_content, "text/html")
+    try:
+        msg.send()
+        print("send_confirm_email done")
+        return True
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
+    
+
+def receive_confirm_email(request,token):
+    user_token=get_object_or_404(UserToken, token=token, token_type='verify_email')
+    if not user_token.is_valid():
+        messages.error(request, 'Link expired or already used.')
+        return redirect('accounts:account_settings')
+    user = user_token.user
+    user.email = user_token.pending_email
+    user.save(update_fields=['email'])
+    user_token.is_used = True
+    user_token.save(update_fields=['is_used'])
+    messages.success(request, 'Email verified successfully!')
+    return redirect('accounts:login')
+
+def forgot_password(request):
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        user = User.objects.filter(email=email).first()
+        if not user:
+            messages.error(request, 'No account found with this email address.')
+            return redirect('accounts:forgot_password')       
+        UserToken.objects.filter(user=user, token_type='reset_password', is_used=False).delete()       
+        user_token= UserToken.objects.create(
+            user=user,
+            token_type='reset_password'
+        )
+        try: 
+            send_reset_password(request, user_token.token, user)        
+            messages.success(request, f'Reset link sent to {email}. Please check your inbox.')
+        except Exception as e:
+            messages.error(request, f'Failed to send an Email.')
+            print(f"{e}")
+    return render(request, 'accounts/login_forgot_password.html')
+
+
 def send_reset_password(request, token, user):
     reset_url= request.build_absolute_uri(
     reverse('accounts:receive_reset_password', kwargs={'token': token}))
@@ -423,61 +494,3 @@ def receive_reset_password(request, token):
     else:
         form=C_PasswordResetForm()
     return render(request, 'accounts/reset_password.html', {'form':form,'token':token})
-
-
-def send_confirm_email(request, pending_email, token, user):    
-    confirm_email_url= request.build_absolute_uri(
-    reverse('accounts:receive_confirm_email', kwargs={'token': token.token}))
-    print("before render to string send_confirm_email")
-    html_content = render_to_string('emails/confirm_email.html', {
-        'username': user.username,
-        'confirm_email_url': confirm_email_url,
-        'year': timezone.now().year,})
-    text_content = strip_tags(html_content)
-    msg = EmailMultiAlternatives(
-        subject='PasNevesht - Confirm Your Email',
-        body=text_content,
-        from_email=DEFAULT_FROM_EMAIL,
-        to=[pending_email])
-    msg.attach_alternative(html_content, "text/html")
-    try:
-        msg.send()
-        print("send_confirm_email done")
-        return True
-    except Exception as e:
-        print(f"Error: {e}")
-        return False
-    
-
-def receive_confirm_email(request,token):
-    user_token=get_object_or_404(UserToken, token=token, token_type='verify_email')
-    if not user_token.is_valid():
-        messages.error(request, 'Link expired or already used.')
-        return redirect('accounts:account_settings')
-    user = user_token.user
-    user.email = user_token.pending_email
-    user.save(update_fields=['email'])
-    user_token.is_used = True
-    user_token.save(update_fields=['is_used'])
-    messages.success(request, 'Email verified successfully!')
-    return redirect('accounts:login')
-
-def forgot_password(request):
-    if request.method == 'POST':
-        email = request.POST.get('email')
-        user = User.objects.filter(email=email).first()
-        if not user:
-            messages.error(request, 'No account found with this email address.')
-            return redirect('accounts:forgot_password')       
-        UserToken.objects.filter(user=user, token_type='reset_password', is_used=False).delete()       
-        user_token= UserToken.objects.create(
-            user=user,
-            token_type='reset_password'
-        )
-        try: 
-            send_reset_password(request, user_token.token, user)        
-            messages.success(request, f'Reset link sent to {email}. Please check your inbox.')
-        except Exception as e:
-            messages.error(request, f'Failed to send an Email.')
-            print(f"{e}")
-    return render(request, 'accounts/login_forgot_password.html')

@@ -46,6 +46,7 @@
             
             <div class="form-field full-width">
                 <label for="{{form.scheduled_date.id_for_label}}">Set The Date (Optional):</label>
+                <p> Please enter a UTC time. UTC time is now:{{UTC_time}}</p>
                 {{form.scheduled_date|attr:"min:"| attr:"name:scheduled_date"}}
                 {% if forms.errors %}
                     <div>{{form.receiver.errors}}</div>

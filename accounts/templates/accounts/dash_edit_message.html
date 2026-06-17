@@ -57,6 +57,7 @@
                 <label for="{{ form.scheduled_date.id_for_label }}" class="edit-msg-label">
                     Scheduled Date <span class="edit-msg-optional">(Optional)</span>
                 </label>
+                <p> Please enter a UTC time. UTC time is now:{{UTC_time}}</p>
                 {{ form.scheduled_date|add_class:"edit-msg-input edit-msg-date"|attr:"type:datetime-local" }}
                 {% if form.scheduled_date.errors %}
                     <div class="edit-msg-error">{{ form.scheduled_date.errors }}</div>
